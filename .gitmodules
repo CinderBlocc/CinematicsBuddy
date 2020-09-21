@@ -1,0 +1,6 @@
+[submodule "CinematicsBuddyPlugin"]
+	path = CinematicsBuddyPlugin
+	url = https://github.com/CinderBlocc/CinematicsBuddyPlugin.git
+[submodule "CinematicsBuddyMaxscript"]
+	path = CinematicsBuddyMaxscript
+	url = https://github.com/CinderBlocc/CinematicsBuddyMaxscript.git
