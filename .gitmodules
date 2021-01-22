@@ -1,9 +1,12 @@
-[submodule "CinematicsBuddyPlugin"]
-	path = CinematicsBuddyPlugin
+[submodule "submodules/CinematicsBuddyPlugin"]
+	path = submodules/CinematicsBuddyPlugin
 	url = https://github.com/CinderBlocc/CinematicsBuddyPlugin.git
-[submodule "CinematicsBuddyMaxscript"]
-	path = CinematicsBuddyMaxscript
+	branch = master
+[submodule "submodules/CinematicsBuddyMaxscript"]
+	path = submodules/CinematicsBuddyMaxscript
 	url = https://github.com/CinderBlocc/CinematicsBuddyMaxscript.git
-[submodule "CinematicsBuddyAE"]
-	path = CinematicsBuddyAE
+	branch = master
+[submodule "submodules/CinematicsBuddyAE"]
+	path = submodules/CinematicsBuddyAE
 	url = https://github.com/CinderBlocc/CinematicsBuddyAE.git
+	branch = main
