@@ -1,12 +1,6 @@
 ECHO OFF
 
 ECHO.
-ECHO TODO
-ECHO - Automatically update submodules
-ECHO - Copy built dll into plugin repo's bakkesmod plugins folder
-ECHO - Copy each submodules' bakkesmod folder contents into the root bakkesmod folder
-
-ECHO.
 ECHO Initializing and updating submodules
 git submodule update --init --recursive
 
@@ -21,6 +15,25 @@ ECHO Found MSBuild.exe: %MSBuildLocation%
 
 ECHO.
 ECHO Rebuilding CinematicsBuddy.sln
-"%MSBuildLocation%" submodules/CinematicsBuddyPlugin/CinematicsBuddy.sln /t:Rebuild
+"%MSBuildLocation%" submodules\CinematicsBuddyPlugin\CinematicsBuddy.sln /t:Rebuild
 
+ECHO.
+ECHO Copying built dll into plugins folder
+COPY "submodules\CinematicsBuddyPlugin\x64\Release\CinematicsBuddy.dll" "submodules\CinematicsBuddyPlugin\bakkesmod\plugins\"
+
+if not exist "bakkesmod\" mkdir "bakkesmod"
+
+ECHO.
+ECHO Copying contents of plugin repo into root bakkesmod folder
+XCOPY /e /v /s "submodules\CinematicsBuddyPlugin\bakkesmod\" "bakkesmod\"
+
+ECHO.
+ECHO Copying contents of maxscript repo into root bakkesmod folder
+XCOPY /e /v /s "submodules\CinematicsBuddyMaxscript\bakkesmod\" "bakkesmod\"
+
+ECHO.
+ECHO Copying contents of after effects repo into root bakkesmod folder
+XCOPY /e /v /s "submodules\CinematicsBuddyAE\bakkesmod\" "bakkesmod\"
+
+ECHO.
 PAUSE
