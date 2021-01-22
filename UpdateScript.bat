@@ -1,7 +1,14 @@
 ECHO OFF
 
 ECHO.
-ECHO This script currently does nothing. The goal is to write this script to automate the pull/build/copy process for all submodules into the bakkesmod folder
+ECHO TODO
+ECHO - Automatically update submodules
+ECHO - Copy built dll into plugin repo's bakkesmod plugins folder
+ECHO - Copy each submodules' bakkesmod folder contents into the root bakkesmod folder
+
+ECHO.
+ECHO Initializing and updating submodules
+git submodule update --init --recursive
 
 ECHO.
 ECHO Creating CommandVar to store vswhere execution command
