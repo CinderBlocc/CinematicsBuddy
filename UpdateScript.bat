@@ -25,15 +25,16 @@ if not exist "bakkesmod\" mkdir "bakkesmod"
 
 ECHO.
 ECHO Copying contents of plugin repo into root bakkesmod folder
-XCOPY /e /v /s "submodules\CinematicsBuddyPlugin\bakkesmod\" "bakkesmod\"
+XCOPY /e /v /s /y "submodules\CinematicsBuddyPlugin\bakkesmod\" "bakkesmod\"
 
 ECHO.
 ECHO Copying contents of maxscript repo into root bakkesmod folder
-XCOPY /e /v /s "submodules\CinematicsBuddyMaxscript\bakkesmod\" "bakkesmod\"
+XCOPY /e /v /s /y "submodules\CinematicsBuddyMaxscript\bakkesmod\" "bakkesmod\"
 
 ECHO.
 ECHO Copying contents of after effects repo into root bakkesmod folder
-XCOPY /e /v /s "submodules\CinematicsBuddyAE\bakkesmod\" "bakkesmod\"
+XCOPY /e /v /s /y "submodules\CinematicsBuddyAE\bakkesmod\" "bakkesmod\"
 
 ECHO.
+ECHO Script successfully completed.
 PAUSE
