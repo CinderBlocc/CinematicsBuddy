@@ -3,6 +3,7 @@ ECHO OFF
 ECHO.
 ECHO Initializing and updating submodules
 git submodule update --init --recursive
+git submodule update --remote --recursive
 
 ECHO.
 ECHO Creating CommandVar to store vswhere execution command
