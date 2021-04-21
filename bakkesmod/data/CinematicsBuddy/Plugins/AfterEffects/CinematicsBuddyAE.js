@@ -1,185 +1,986 @@
 ﻿//Written by: SwiFT EQ and CinderBlock
-//Version 1.0
-//Compatible with Cinematics Buddy version 0.9.4
-
+//Version 0.9.9a
 
 // GLOBAL VARIABLES //
+ProgressDialog();
+ProgressSteps = 20;
 var BlueColor = [0.35, 0.45, 0.9];
 var OrangeColor = [0.95, 0.55, 0.2];
 
 // RUN THE SCRIPT //
 main();
 
+// PROGRESS DIALOG DEFINITION //
+function ProgressDialog()
+{    
+    var TheWindow;
+    var MainLabel;
+    var MainBar;
+    var SubLabel;
+    var SubBar;
+    var CancelButton;
 
-// MAIN FUNCTION //
-function main()
-{
-    app.beginUndoGroup("CinematicsBuddyAE Import");
+    //Create the dialog box
+    TheWindow = new Window("palette", "Progress", undefined, {closeButton: true});
+    
+    //Create the label and progress bar for the main steps
+    MainLabel = TheWindow.add("statictext");
+    MainLabel.preferredSize = [450, -1];
+    MainBar = TheWindow.add("progressbar", undefined, 0, 5);
+    MainBar.preferredSize = [450, -1];
 
-    //Get the current active comp
-    var MyComp = app.project.activeItem;
-    if(MyComp == null)
+    //Create the label and progress bar for the sub steps
+    //SubBar is defaulted to 100 steps, but should be set using SetSubSteps
+    SubLabel = TheWindow.add("statictext");
+    SubLabel.preferredSize = [450, -1];
+    SubBar = TheWindow.add("progressbar", undefined, 0, 100);
+    SubBar.preferredSize = [450, -1];
+
+    // MEMBER FUNCTIONS //
+    ProgressDialog.IncrementMain = function()
     {
-        alert("No selected comp");
-        app.endUndoGroup();
-        return;
+        ++MainBar.value;
+        SubBar.value = 0;
+        SubLabel.text = "";
+        TheWindow.update();
+    };
+
+    ProgressDialog.IncrementSub = function(amount)
+    {
+        SubBar.value += amount;
+        //TheWindow.update();
+    };
+
+    ProgressDialog.MainMessage = function(message)
+    {
+        MainLabel.text = message;
+        TheWindow.update();
+    };
+
+    ProgressDialog.SubMessage = function(message)
+    {
+        SubLabel.text = message;
+        TheWindow.update();
+    };
+
+    ProgressDialog.SetMainMaxValue = function(MainSteps)
+    {
+        MainBar.maxvalue = MainSteps;
+        TheWindow.update();
     }
 
-    //Create objects and get a handle to the camera
-    var Objects = CreateCompObjects(MyComp);
-    var CameraLayer = Objects.CameraLayer;
-    var BallLayer = Objects.BallLayer;
+    ProgressDialog.SetSubMaxValue = function(SubSteps)
+    {
+        SubBar.maxvalue = SubSteps;
+        SubBar.value = 0;
+        TheWindow.update();
+    }
+
+    ProgressDialog.Show = function()
+    {
+        TheWindow.show();
+        TheWindow.update();
+    }
+
+    ProgressDialog.Close = function()
+    {
+        MainLabel.text = "";
+        MainBar.value = 0;
+        SubLabel.text = "";
+        SubBar.value = 0;
+        TheWindow.update();
+        TheWindow.close();
+    };
+}
+//
+
+// MAIN FUNCTIONS //
+function main()
+{
+    //Make sure there is an active composition
+    if(app.project.activeItem == null)
+    {
+        alert("No selected composition");
+        return;
+    }
     
+    //Create the FileData object. Contains all lines from file, and current line index
+    var FileData = GetFileData();
+    if(FileData.bSuccess == true)
+    {
+        //Initialize progress dialog. Currently 5 main steps as denoted by the functions below
+        ProgressDialog.SetMainMaxValue(5);
+        ProgressDialog.Show();
+        
+        //Collect header metadata
+        var HeaderData = GetHeaderData(FileData.HeaderString);
+        
+        //Collect keyframes as chunks of strings
+        var KeyframeStrings = SplitKeyframes(FileData.KeyframeStrings, parseInt(HeaderData.RecordingMetadata.Frames));
+
+        //Collect arrays of keyframe data, starting from current line index in FileData
+        var Keyframes = GetKeyframes(KeyframeStrings, HeaderData);
+        
+        //Compile all of the keyframes into individual arrays
+        var Arrays = GetKeyframeArrays(Keyframes, HeaderData);
+        
+        //Create camera and layers and apply keyframe data
+        ApplyKeyframes(Arrays, HeaderData);
+        
+        //Return version number upon successful completion
+        ProgressDialog.Close();
+        return "Version: " + HeaderData.RecordingMetadata.Version;
+    }
+
+    return "Failed to open txt file";
+}
+
+function GetFileData()
+{
+    //Create object to return later
+    var FileData = new Object();
+    FileData.bSuccess = false;
+    FileData.HeaderString = new Object();
+    FileData.KeyframeStrings = new Object();
+
     //Get user's file selection
     var ChosenFile = File.openDialog("Choose a Cinematics Buddy export file");
 
     //Read the file, then close it
+    var TheData = new Object();
     if(ChosenFile && ChosenFile.open("r"))
     {
-        var data = ChosenFile.read();        
+        TheData = ChosenFile.read();        
         ChosenFile.close();
     }
     else
     {
         //File was either not selected or unable to be opened
         alert("Invalid file");
-        RemoveCompObjects(Objects);
-        app.endUndoGroup();
-        return;
+        return FileData;
     }
 
-    //Split entire file into its individual lines
-    var Lines = data.toString().split("\n");
-
-    //Prepare for parsing lines
-    var bFirstLine = true;
-    var bReadingHeader = true;
-    var VersionNumber = "";
-    var CameraName = "";
-    var TimeSkip = 0;
-    var CompTime = 0;
-    var TimeArray = [];
-    var CamZoomArray = [];
-    var CamPosXArray = [];
-    var CamPosYArray = [];
-    var CamPosZArray = [];
-    var CamRotXArray = [];
-    var CamRotYArray = [];
-    var CamRotZArray = [];
-    var BallPosXArray = [];
-    var BallPosYArray = [];
-    var BallPosZArray = [];
-    var BallRotXArray = [];
-    var BallRotYArray = [];
-    var BallRotZArray = [];
+    //Convert data into a string and split between header and keyframes
+    var AsString = TheData.toString();
+    var HeaderSubstringEnd = AsString.indexOf("\n", AsString.indexOf("BEGIN ANIMATION"));
+    FileData.HeaderString = AsString.substring(0, HeaderSubstringEnd);
+    FileData.KeyframeStrings = AsString.substring(HeaderSubstringEnd);
     
-    //Parse all the lines to get useful data
-    for(i = 0; i < Lines.length; ++i)
+    //Successfully completed file read
+    FileData.bSuccess = true;
+    return FileData;
+}
+
+function GetHeaderData(TheHeader)
+{
+    ProgressDialog.MainMessage("Parsing header");
+    ProgressDialog.SetSubMaxValue(3);
+    
+    //Initialize HeaderData object
+    var HeaderData = new Object();
+    HeaderData.Lines = TheHeader.split("\n");
+    HeaderData.CurrentLine = 0;
+    
+    //Get RecordingMetadata
+    ProgressDialog.SubMessage("Getting Recording Metadata");
+    HeaderData.RecordingMetadata = GetRecordingMetadata(HeaderData);
+    ProgressDialog.IncrementSub(1);
+    
+    //Get ReplayMetadata
+    ProgressDialog.SubMessage("Getting Replay Metadata");
+    HeaderData.ReplayMetadata = GetReplayMetadata(HeaderData);
+    ProgressDialog.IncrementSub(1);
+    
+    //Get CarsSeen
+    ProgressDialog.SubMessage("Getting Cars Seen");
+    HeaderData.CarsSeen = GetCarsSeen(HeaderData);
+    ProgressDialog.IncrementSub(1);
+    
+    ProgressDialog.IncrementMain();
+    return HeaderData;
+}
+
+function SplitKeyframes(InString, TotalKeyframes)
+{
+    ProgressDialog.MainMessage("Splitting keyframes");
+    ProgressDialog.SetSubMaxValue(TotalKeyframes);
+    ProgressDialog.SubMessage("0/" + TotalKeyframes);
+    
+    var KeyframeStrings = [];
+    var IdxStart = 0;
+    var IdxEnd = 0;
+    
+    //Split all keyframes into separate substrings
+    var bIsSplitting = true;
+    var bHaveKeyframe = false;
+    var StackLevel = 0;
+    var KeyframesFound = 0;
+    while(bIsSplitting === true)
     {
-        var ThisLine = Lines[i];
-        
-        //Check the first line to see if it is a valid CB file. Get the version number from it
-        if(bFirstLine)
+        ++IdxEnd;
+        if(IdxEnd >= InString.length)
         {
-            bFirstLine = false;
-            if(ThisLine.indexOf("Version:") == -1)
-            {
-                alert("File is not a CinematicsBuddy file. First line needs to have Version:");
-                RemoveCompObjects(Objects);
-                app.endUndoGroup();
-                return;
-            }
-            
-            var VersionNumberSplit = ThisLine.split(" ");
-            VersionNumber = VersionNumberSplit.slice(1, VersionNumberSplit.length).join();
-            continue;
+            IdxEnd = InString.length;
+            bIsSplitting = false;
         }
         
-        //Read all the other lines to either get metadata or keyframes
-        if(bReadingHeader)
+        //Stack match braces until a full keyframe is found
+        if(InString[IdxEnd] === '{')
         {
-            //Not yet past the header. Get metadata
-            //Check if line contains "Camera:". Pull the camera name from that line
-            if(ThisLine.indexOf("Camera:") > -1)
+            ++StackLevel;
+        }
+        else if(InString[IdxEnd] === '}')
+        {
+            --StackLevel;
+            if(StackLevel === 0)
             {
-                var CameraNameSplit = ThisLine.split(" ");
-                CameraLayer.name = CameraNameSplit.slice(1, CameraNameSplit.length).join();
-                continue;
-            }
-            
-            //Check if line contains "Framerate:". Calculate TimeSkip from that line
-            if(ThisLine.indexOf("Framerate:") > -1)
-            {
-                var FrameRate = parseInt(ThisLine.split(" ").slice(1, 3).join());
-                var CompFramerate = 1 / MyComp.frameDuration;
-                var Subframes = FrameRate / CompFramerate;
-                TimeSkip = MyComp.frameDuration / Subframes;
-                continue;
-            }
-            
-            //Check if line contains "Timestamp". This is the final header line and should be skipped
-            if(ThisLine.indexOf("Timestamp") > -1)
-            {
-                bReadingHeader = false;
-                continue;
+                bHaveKeyframe = true;
             }
         }
-        else
+        
+        //Put the whole keyframe into a substring and push to the array
+        if(bHaveKeyframe === true)
         {
-            //Already past the header. Get all the keyframe data and check if the file is done
-            //Check if line contains "END". Remove last empty line
-            if(ThisLine.indexOf("END") > -1)
+            ++KeyframesFound;
+            if(KeyframesFound % ProgressSteps == 0)
+            {
+                ProgressDialog.IncrementSub(ProgressSteps);
+                ProgressDialog.SubMessage(KeyframesFound + "/" + TotalKeyframes);
+            }
+            
+            //Increment the end to get the last closing brace
+            ++IdxEnd;
+            KeyframeStrings.push(InString.substring(IdxStart, IdxEnd));
+            
+            IdxStart = IdxEnd + 1;
+            if(IdxStart >= InString.length)
             {
                 break;
             }
+        }
+        
+        bHaveKeyframe = false;
+    }
 
-            //Get the keyframe data and add to arrays
-            var LineToConvert = ThisLine.split("\t").slice(3, 10).join();
-            Keyframe = ConvertKeyframeData(LineToConvert, MyComp);
-            
-            CamZoomArray.push(Keyframe.CamZoom);
-            CamPosXArray.push(Keyframe.CamPosX);
-            CamPosYArray.push(Keyframe.CamPosY);
-            CamPosZArray.push(Keyframe.CamPosZ);
-            CamRotXArray.push(Keyframe.CamRotX);
-            CamRotYArray.push(Keyframe.CamRotY);
-            CamRotZArray.push(Keyframe.CamRotZ);
-            BallPosXArray.push(Keyframe.BallPosX);
-            BallPosYArray.push(Keyframe.BallPosY);
-            BallPosZArray.push(Keyframe.BallPosZ);
-            BallRotXArray.push(Keyframe.BallRotX);
-            BallRotYArray.push(Keyframe.BallRotY);
-            BallRotZArray.push(Keyframe.BallRotZ);
-            
-            TimeArray.push(CompTime);
-            CompTime += TimeSkip;
+    ProgressDialog.IncrementMain();
+    return KeyframeStrings;
+}
+
+function GetKeyframes(KeyframeStrings, HeaderData)
+{
+    ProgressDialog.MainMessage("Parsing keyframes");
+    ProgressDialog.SetSubMaxValue(KeyframeStrings.length);
+    ProgressDialog.SubMessage("0/" + KeyframeStrings.length);
+    
+    var Keyframes = [];
+    
+    for(var i = 0; i < KeyframeStrings.length;)
+    {        
+        Keyframes.push(GetKeyframeData(KeyframeStrings[i], HeaderData));
+        
+        ++i;
+        if(i % ProgressSteps == 0)
+        {
+            ProgressDialog.IncrementSub(ProgressSteps);
+            ProgressDialog.SubMessage(i + "/" + KeyframeStrings.length);
         }
     }
 
-    //Apply the arrays
-    CameraLayer.property("Camera Options").property("Zoom").setValuesAtTimes( TimeArray, CamZoomArray);
-    CameraLayer.property("Transform").property("X Position").setValuesAtTimes(TimeArray, CamPosXArray);
-    CameraLayer.property("Transform").property("Y Position").setValuesAtTimes(TimeArray, CamPosYArray);
-    CameraLayer.property("Transform").property("Z Position").setValuesAtTimes(TimeArray, CamPosZArray);
-    CameraLayer.property("Transform").property("X Rotation").setValuesAtTimes(TimeArray, CamRotXArray);
-    CameraLayer.property("Transform").property("Y Rotation").setValuesAtTimes(TimeArray, CamRotYArray);
-    CameraLayer.property("Transform").property("Z Rotation").setValuesAtTimes(TimeArray, CamRotZArray);
-    BallLayer.property("Transform").property("X Position").setValuesAtTimes(TimeArray, BallPosXArray);
-    BallLayer.property("Transform").property("Y Position").setValuesAtTimes(TimeArray, BallPosYArray);
-    BallLayer.property("Transform").property("Z Position").setValuesAtTimes(TimeArray, BallPosZArray);
-    BallLayer.property("Transform").property("X Rotation").setValuesAtTimes(TimeArray, BallRotXArray);
-    BallLayer.property("Transform").property("Y Rotation").setValuesAtTimes(TimeArray, BallRotYArray);
-    BallLayer.property("Transform").property("Z Rotation").setValuesAtTimes(TimeArray, BallRotZArray);
-
-    //Clean up and return
-    app.endUndoGroup();
-    return "Version " + VersionNumber;
+    ProgressDialog.IncrementMain();
+    return Keyframes;
 }
+
+function GetKeyframeArrays(Keyframes, HeaderData)
+{
+    ProgressDialog.MainMessage("Compiling keyframes");
+    ProgressDialog.SetSubMaxValue(Keyframes.length);
+    ProgressDialog.SubMessage("0/" + Keyframes.length);
+    
+    var Arrays = [];
+    
+    //Time array
+    Arrays.Time = [];
+    
+    //Camera arrays
+    var CameraData = new Object();
+    CameraData.FOV = [];
+    CameraData.Location = BuildVectorArrays();
+    CameraData.Rotation = BuildVectorArrays();
+    Arrays.Camera = CameraData;
+    
+    //Ball arrays
+    var BallData = new Object();
+    BallData.Location = BuildVectorArrays();
+    BallData.Rotation = BuildVectorArrays();
+    Arrays.Ball = BallData;
+    
+    //Car arrays
+    Arrays.Cars = [];
+    for(var i = 0; i < HeaderData.CarsSeen.length; ++i)
+    {
+        var CarArray = new Object();
+        CarArray.bIsNull  = [];
+        CarArray.Location = BuildVectorArrays();
+        CarArray.Rotation = BuildVectorArrays();
+        
+        Arrays.Cars.push(CarArray);
+    }
+
+    //Loop through all keyframes and add their data to Arrays
+    for(var i = 0; i < Keyframes.length;)
+    {
+        var ThisKeyframe = Keyframes[i];
+        
+        //Time
+        Arrays.Time.push(ThisKeyframe.Time.Time);
+        
+        //Camera
+        Arrays.Camera.FOV.push(ThisKeyframe.Camera.FOV);
+        MapVector(Arrays.Camera.Location, ThisKeyframe.Camera.Location);
+        MapVector(Arrays.Camera.Rotation, ThisKeyframe.Camera.Rotation);
+        
+        //Ball
+        MapVector(Arrays.Ball.Location, ThisKeyframe.Ball.Location);
+        MapVector(Arrays.Ball.Rotation, ThisKeyframe.Ball.Rotation);
+        
+        //Cars
+        for(var j = 0; j < HeaderData.CarsSeen.length; ++j)
+        {
+            Arrays.Cars[j].bIsNull.push(ThisKeyframe.Cars[j].bIsNull ? 0 : 100);
+            MapVector(Arrays.Cars[j].Location, ThisKeyframe.Cars[j].Location);
+            MapVector(Arrays.Cars[j].Rotation, ThisKeyframe.Cars[j].Rotation);
+        }
+        
+        ++i;
+        if(i % ProgressSteps == 0)
+        {
+            ProgressDialog.IncrementSub(ProgressSteps);
+            ProgressDialog.SubMessage(i + "/" + Keyframes.length);
+        }
+    }
+    
+    ProgressDialog.IncrementMain();
+    return Arrays;
+}
+
+function ApplyKeyframes(Arrays, HeaderData)
+{
+    ProgressDialog.MainMessage("Applying keyframes");
+    ProgressDialog.SetSubMaxValue(2);
+    
+    //Start an undo group so that all composition changes can be undone easily
+    app.beginUndoGroup("CinematicsBuddyAE Import");
+    
+    //Create reference grids, camera, and other necessary objects
+    ProgressDialog.SubMessage("Creating objects");
+    var MyComp = app.project.activeItem;
+    var Objects = CreateCompObjects(MyComp, HeaderData);
+    var CameraLayer = Objects.CameraLayer;
+    var BallLayer = Objects.BallLayer;
+    var CarLayers = Objects.CarLayers;
+    ProgressDialog.IncrementSub(1);
+    
+    //Begin applying the arrays
+    ProgressDialog.SubMessage("Applying arrays");
+    
+    //Camera
+    CameraLayer.property("Camera Options").property("Zoom").setValuesAtTimes(Arrays.Time, Arrays.Camera.FOV);
+    ApplyVectorKeyframe(CameraLayer, Arrays.Time, Arrays.Camera.Location, true);
+    ApplyVectorKeyframe(CameraLayer, Arrays.Time, Arrays.Camera.Rotation, false);
+    
+    //Ball
+    ApplyVectorKeyframe(BallLayer, Arrays.Time, Arrays.Ball.Location, true);
+    ApplyVectorKeyframe(BallLayer, Arrays.Time, Arrays.Ball.Rotation, false);
+    
+    //Cars
+    for(var i = 0; i < HeaderData.CarsSeen.length; ++i)
+    {
+        var ThisCarLayer = CarLayers[i];
+        var ThisCarKeyframes = Arrays.Cars[i];
+        ThisCarLayer.property("Opacity").setValuesAtTimes(Arrays.Time, ThisCarKeyframes.bIsNull);
+        ApplyVectorKeyframe(ThisCarLayer, Arrays.Time, ThisCarKeyframes.Location, true);
+        ApplyVectorKeyframe(ThisCarLayer, Arrays.Time, ThisCarKeyframes.Rotation, false);
+    }
+    
+    //Completed task
+    ProgressDialog.IncrementSub(1);
+    
+    //End undo group
+    app.endUndoGroup();
+    ProgressDialog.IncrementMain();
+}
+
+function ApplyVectorKeyframe(TheLayer, TimeArray, TheVector, bLocationOrRotation)
+{
+    var TheType = bLocationOrRotation ? "Position" : "Rotation";
+    TheLayer.property("Transform").property("X " + TheType).setValuesAtTimes(TimeArray, TheVector.X);
+    TheLayer.property("Transform").property("Y " + TheType).setValuesAtTimes(TimeArray, TheVector.Y);
+    TheLayer.property("Transform").property("Z " + TheType).setValuesAtTimes(TimeArray, TheVector.Z);
+}
+//
 
 
 // UTILITY FUNCTIONS //
-//Create camera, plane, and text objects
-function CreateCompObjects(MyComp)
+function RemoveWhitespace(InString)
+{
+    return InString.replace(/^\s+|\s+$/g,'');
+}
+
+function GetSplitHeaderLine(ThisLine)
+{
+    var SplitLine = ThisLine.split(":");
+    
+    var Output = new Object();
+    Output.Label = SplitLine[0];
+    Output.Data = RemoveWhitespace(SplitLine.slice(1, SplitLine.length).join());
+    
+    return Output;
+}
+
+function GetSplitKeyframeLine(ThisLine)
+{
+    var SplitLine = ThisLine.split(":");
+    
+    var Output = new Object();
+    Output.Label = SplitLine[0];
+    Output.Data = SplitLine.slice(1, SplitLine.length).join();
+    
+    return Output;
+}
+
+function GetEmptyVector()
+{
+    var Vector = new Object();
+    Vector.X = 0;
+    Vector.Y = 0;
+    Vector.Z = 0;
+    
+    return Vector;
+}
+
+function ParseVector(VectorString)
+{    
+    var VectorVals = VectorString.split(",");
+    
+    var Vector = new Object();
+    Vector.X = parseFloat(VectorVals[1]) *  2.54;
+    Vector.Y = parseFloat(VectorVals[2]) * -2.54;
+    Vector.Z = parseFloat(VectorVals[0]) *  2.54;
+    
+    return Vector;
+}
+
+function ParseQuat(QuatString)
+{
+    //Converts quaternion WXYZ into Euler rotation XYZ
+    //https://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToEuler/
+    var QuatVals = QuatString.split(",");
+    var qW = parseFloat(QuatVals[0]);
+    var qX = parseFloat(QuatVals[1]);
+    var qY = parseFloat(QuatVals[2]);
+    var qZ = parseFloat(QuatVals[3]);
+    
+    //Pitch
+    var H1 = (2 * qY * qW) - (2 * qX * qZ);
+    var H2 = 1 - (2 * qY * qY) - (2 * qZ * qZ);
+    var Pitch = Math.atan2(H1, H2);
+    
+    //Yaw - Clamped to [-1,1] so asin doesn't throw a NaN result
+    var A1 = 2 * qX * qY;
+    var A2 = 2 * qZ * qW;
+    var Added = A1 + A2;
+    if(Added < -1) { Added = -1; }
+    if(Added >  1) { Added =  1; }
+    var Yaw = Math.asin(Added);
+    
+    //Roll
+    var B1 = (2 * qX * qW) - (2 * qY * qZ);
+    var B2 = 1 - (2 * qX * qX) - (2 * qZ * qZ);
+    var Roll = Math.atan2(B1, B2);
+    
+    //Convert from radians to degrees
+    var RadToDeg = 180 / Math.PI;
+    var NewPitch = Pitch * RadToDeg;
+    var NewYaw   = Yaw   * RadToDeg;
+    var NewRoll  = Roll  * RadToDeg;
+    
+    //Output the rotation
+    var Rotation = new Object();
+    Rotation.X = NewPitch * -1;
+    Rotation.Y = NewYaw;
+    Rotation.Z = NewRoll * -1;
+    
+    return Rotation;
+}
+
+
+function BuildVectorArrays()
+{
+    var Output = new Object();
+    
+    Output.X = [];
+    Output.Y = [];
+    Output.Z = [];
+    
+    return Output;
+}
+
+function MapVector(OutArray, InVector)
+{
+    OutArray.X.push(InVector.X);
+    OutArray.Y.push(InVector.Y);
+    OutArray.Z.push(InVector.Z);
+}
+//
+
+// HEADER PARSING //
+function GetRecordingMetadata(HeaderData)
+{
+    var RecordingMetadata = new Object();
+    RecordingMetadata.Version    = "";
+    RecordingMetadata.Camera     = "";
+    RecordingMetadata.AverageFPS = -1.0;
+    RecordingMetadata.Frames     = -1;
+    RecordingMetadata.Duration   = -1.0;
+    
+    //Skip the first line "RECORDING METADATA"
+    ++HeaderData.CurrentLine;
+
+    //Loop through all the metadata lines until an empty line is found
+    while(HeaderData.CurrentLine < HeaderData.Lines.length)
+    {
+        var ThisLine = HeaderData.Lines[HeaderData.CurrentLine];
+        ++HeaderData.CurrentLine;
+        
+        if(ThisLine === "")
+        {
+            break;
+        }
+        
+        //Get the individual data points
+        var SplitLine = GetSplitHeaderLine(ThisLine);
+        if(SplitLine.Label.indexOf("Version") > -1)          { RecordingMetadata.Version    = SplitLine.Data;             }
+        else if(SplitLine.Label.indexOf("Camera") > -1)      { RecordingMetadata.Camera     = SplitLine.Data;             }
+        else if(SplitLine.Label.indexOf("Average FPS") > -1) { RecordingMetadata.AverageFPS = parseFloat(SplitLine.Data); }
+        else if(SplitLine.Label.indexOf("Frames") > -1)      { RecordingMetadata.Frames     = parseInt(SplitLine.Data);   }
+        else if(SplitLine.Label.indexOf("Duration") > -1)    { RecordingMetadata.Duration   = parseFloat(SplitLine.Data); }
+    }
+
+    return RecordingMetadata;
+}
+
+function GetReplayMetadata(HeaderData)
+{
+    var ReplayMetadata = new Object();
+    ReplayMetadata.Name    = "";
+    ReplayMetadata.ID      = "";
+    ReplayMetadata.TheDate = "";
+    ReplayMetadata.FPS     = -1;
+    ReplayMetadata.Frames  = -1;
+    
+    //Skip the first line "REPLAY METADATA"
+    ++HeaderData.CurrentLine;
+    
+    //Loop through all the metadata lines until an empty line is found
+    while(HeaderData.CurrentLine < HeaderData.Lines.length)
+    {
+        var ThisLine = HeaderData.Lines[HeaderData.CurrentLine];
+        ++HeaderData.CurrentLine;
+        
+        if(ThisLine === "")
+        {
+            break;
+        }
+        
+        //Get the individual data points
+        var SplitLine = GetSplitHeaderLine(ThisLine);
+        if(SplitLine.Label.indexOf("Name") > -1)        { ReplayMetadata.Name    = SplitLine.Data;           }
+        else if(SplitLine.Label.indexOf("ID") > -1)     { ReplayMetadata.ID      = SplitLine.Data;           }
+        else if(SplitLine.Label.indexOf("Date") > -1)   { ReplayMetadata.TheDate = SplitLine.Data;           }
+        else if(SplitLine.Label.indexOf("FPS") > -1)    { ReplayMetadata.FPS     = parseInt(SplitLine.Data); }
+        else if(SplitLine.Label.indexOf("Frames") > -1) { ReplayMetadata.Frames  = parseInt(SplitLine.Data); }
+    }
+
+    return ReplayMetadata;
+}
+
+function GetCarsSeen(HeaderData)
+{
+    var CarsSeen = [];
+    
+    //Skip the first line "CARS SEEN" and the opening brace
+    HeaderData.CurrentLine += 2;
+    
+    //Loop through all the cars seen lines until an empty line is found
+    while(HeaderData.CurrentLine < HeaderData.Lines.length)
+    {
+        //Trim the whitespace off the front and check if the group is done
+        var ThisLine = RemoveWhitespace(HeaderData.Lines[HeaderData.CurrentLine]);
+        ++HeaderData.CurrentLine;
+        if(ThisLine == "}")
+        {
+            break;
+        }
+        
+        //Split the line by :
+        var SplitLine = GetSplitKeyframeLine(ThisLine);
+        
+        //Get information for the next car
+        var CarSeenIndex = SplitLine.Label;
+        var CarSeen = GetCarSeen(HeaderData, CarSeenIndex);
+        CarsSeen.push(CarSeen);
+    }
+
+    return CarsSeen;
+}
+
+function GetCarSeen(HeaderData, CarSeenIndex)
+{
+    var CarSeen = new Object();
+    CarSeen.Index = -1;
+    CarSeen.Name = "UNNAMED CAR";
+    CarSeen.ID = "NO ID";
+    CarSeen.Body = -1;
+    CarSeen.FrontWheelRadius = -1.0;
+    CarSeen.BackWheelRadius = -1.0;
+    
+    //Skip the car index since that was retrieved in the parent function
+    ++HeaderData.CurrentLine;
+    
+    while(true)
+    {
+        //Trim the whitespace off the front and check if the group is done
+        var ThisLine = RemoveWhitespace(HeaderData.Lines[HeaderData.CurrentLine]);
+        ++HeaderData.CurrentLine;
+        if(ThisLine == "}")
+        {
+            break;
+        }
+        
+        //Split the line by :
+        var SplitLine = GetSplitKeyframeLine(ThisLine);
+        
+        //Get all car seen data
+        if(SplitLine.Label == "Body")                    { CarSeen.Body = parseInt(SplitLine.Data);               }
+        else if(SplitLine.Label == "ID")                 { CarSeen.ID   = SplitLine.Data;                         }
+        else if(SplitLine.Label == "Front Wheel Radius") { CarSeen.FrontWheelRadius = parseFloat(SplitLine.Data); }
+        else if(SplitLine.Label == "Back Wheel Radius")  { CarSeen.BackWheelRadius  = parseFloat(SplitLine.Data); }
+    }
+    
+    //Fill in last values
+    CarSeen.Index = CarSeenIndex;
+    CarSeen.Name = "Car " + CarSeenIndex + ": " + CarSeen.ID + " Null Object";
+    
+    return CarSeen;
+}
+//
+
+// KEYFRAME PARSING //
+function GetKeyframeData(KeyframeString, HeaderData)
+{
+    var Keyframe = new Object();
+    Keyframe.FrameNumber = -1;
+    Keyframe.Ball = new Object();
+    Keyframe.Camera = new Object();
+    Keyframe.Cars = [];
+    Keyframe.Time = new Object();
+    Keyframe.CurrentLine = 0;
+    
+    //Split keyframe into an array of its individual lines
+    var Lines = KeyframeString.split("\n");
+    var StackLevel = 0;
+    
+    //Loop through lines
+    while(Keyframe.CurrentLine < Lines.length)
+    {
+        //Trim the whitespace off the front and check if the keyframe is done
+        var ThisLine = RemoveWhitespace(Lines[Keyframe.CurrentLine]);
+        ++Keyframe.CurrentLine;
+        if(ThisLine == "}")
+        {
+            break;
+        }
+        
+        //Split the line by :
+        var SplitLine = GetSplitKeyframeLine(ThisLine);
+        
+        //Choose the right data gathering function based on the group label
+        if(SplitLine.Data == "{")
+        {
+            switch(StackLevel)
+            {
+                case 0:
+                {
+                    Keyframe.FrameNumber = parseInt(SplitLine.Label);
+                    ++StackLevel;
+                    break;
+                }
+                case 1:
+                {
+                    if(SplitLine.Label == "B")       { Keyframe.Ball = GetBallData(Keyframe, Lines);             }
+                    else if(SplitLine.Label == "CM") { Keyframe.Camera = GetCameraData(Keyframe, Lines);         }
+                    else if(SplitLine.Label == "CR") { Keyframe.Cars = GetCarsData(Keyframe, Lines, HeaderData); }
+                    else if(SplitLine.Label == "T")  { Keyframe.Time = GetTimeData(Keyframe, Lines);             }
+                    break;
+                }
+            }
+        }
+    }
+    
+    return Keyframe;
+}
+
+function GetBallData(Keyframe, Lines)
+{
+    var BallData = new Object();
+    BallData.Location = new Object();
+    BallData.Rotation = new Object();
+    
+    while(true)
+    {
+        //Trim the whitespace off the front and check if the group is done
+        var ThisLine = RemoveWhitespace(Lines[Keyframe.CurrentLine]);
+        ++Keyframe.CurrentLine;
+        if(ThisLine == "}")
+        {
+            break;
+        }
+        
+        //Split the line by :
+        var SplitLine = GetSplitKeyframeLine(ThisLine);
+        
+        //Get location and rotation
+        if(SplitLine.Label == "L")      { BallData.Location = ParseVector(SplitLine.Data); }
+        else if(SplitLine.Label == "R") { BallData.Rotation = ParseQuat(SplitLine.Data);   }
+    }
+    
+    return BallData;
+}
+
+function GetCameraData(Keyframe, Lines)
+{
+    var CameraData = new Object();
+    CameraData.Location = new Object();
+    CameraData.Rotation = new Object();
+    CameraData.FOV = 0;
+    
+    while(true)
+    {
+        //Trim the whitespace off the front and check if the group is done
+        var ThisLine = RemoveWhitespace(Lines[Keyframe.CurrentLine]);
+        ++Keyframe.CurrentLine;
+        if(ThisLine == "}")
+        {
+            break;
+        }
+        
+        //Split the line by :
+        var SplitLine = GetSplitKeyframeLine(ThisLine);
+        
+        //Get location, rotation, and FOV
+        if(SplitLine.Label == "L")      { CameraData.Location = ParseVector(SplitLine.Data); }
+        else if(SplitLine.Label == "R") { CameraData.Rotation = ParseQuat(SplitLine.Data);   }
+        else if(SplitLine.Label == "F") { CameraData.FOV = GetZoom(SplitLine.Data);       }
+    }
+    
+    return CameraData;
+}
+
+function GetZoom(InFOV)
+{
+    var TheComp = app.project.activeItem;
+    var AspectRatio = TheComp.width / TheComp.height;
+    var FOV = parseFloat(InFOV);
+    var FOVRads = (FOV / 2) * (Math.PI / 180);
+    var Zoom = TheComp.width / (2 * Math.tan(FOVRads));
+    
+    return Zoom;
+}
+
+function GetTimeData(Keyframe, Lines)
+{
+    var TimeData = new Object();
+    TimeData.ReplayFrame = 0;
+    TimeData.Time = 0.0;
+    
+    while(true)
+    {
+        //Trim the whitespace off the front and check if the group is done
+        var ThisLine = RemoveWhitespace(Lines[Keyframe.CurrentLine]);
+        ++Keyframe.CurrentLine;
+        if(ThisLine == "}")
+        {
+            break;
+        }
+        
+        //Split the line by :
+        var SplitLine = GetSplitKeyframeLine(ThisLine);
+        
+        //Get replay frame and time
+        if(SplitLine.Label == "RF")     { TimeData.ReplayFrame = parseInt(SplitLine.Data); }
+        else if(SplitLine.Label == "T") { TimeData.Time = parseFloat(SplitLine.Data);      }
+    }
+    
+    return TimeData;
+}
+
+function GetCarsData(Keyframe, Lines, HeaderData)
+{
+    var Cars = GetNullCars(HeaderData.CarsSeen.length);
+    
+    while(true)
+    {
+        //Trim the whitespace off the front and check if the group is done
+        var ThisLine = RemoveWhitespace(Lines[Keyframe.CurrentLine]);
+        ++Keyframe.CurrentLine;
+        if(ThisLine == "}")
+        {
+            break;
+        }
+        
+        //Split the line by :
+        var SplitLine = GetSplitKeyframeLine(ThisLine);
+        
+        //Get information for the next car
+        var CarSeenIndex = SplitLine.Label;
+        var Car = GetCarData(Keyframe, Lines);
+        Car.CarSeenIndex = CarSeenIndex;
+        Cars[CarSeenIndex] = Car;
+    }
+
+    return Cars;
+}
+
+function GetNullCars(NumCars)
+{
+    var NullCars = [];
+    
+    for(var i = 0; i < NumCars; ++i)
+    {
+        var Car = new Object();
+        Car.bIsNull = true;
+        Car.CarSeenIndex = i;
+        Car.bBoosting = false;
+        Car.Location = GetEmptyVector();
+        Car.Rotation = GetEmptyVector();
+        Car.Wheels = GetNullWheels(4);
+        
+        NullCars.push(Car);
+    }
+
+    return NullCars;
+}
+
+function GetNullWheels(NumWheels)
+{
+    var NullWheels = [];
+    
+    for(var i = 0; i < NumWheels; ++i)
+    {
+        var Wheel = new Object();
+        Wheel.SteerAmount        = 0;
+        Wheel.SuspensionDistance = 0;
+        Wheel.SpinSpeed          = 0;
+        
+        NullWheels.push(Wheel);
+    }
+    
+    return NullWheels;
+}
+
+function GetCarData(Keyframe, Lines)
+{
+    var Car = new Object();
+    Car.bIsNull = false;
+    Car.CarSeenIndex = -1;
+    Car.bBoosting = false;
+    Car.Location = new Object();
+    Car.Rotation = new Object();
+    Car.Wheels = [];
+    
+    //Skip the car index since that was retrieved in the parent function
+    ++Keyframe.CurrentLine;
+    
+    while(true)
+    {
+        //Trim the whitespace off the front and check if the group is done
+        var ThisLine = RemoveWhitespace(Lines[Keyframe.CurrentLine]);
+        ++Keyframe.CurrentLine;
+        if(ThisLine == "}")
+        {
+            break;
+        }
+        
+        //Split the line by :
+        var SplitLine = GetSplitKeyframeLine(ThisLine);
+        
+        //Get all car data
+        if(SplitLine.Label == "B")      { Car.bBoosting = parseInt(SplitLine.Data);       }
+        else if(SplitLine.Label == "L") { Car.Location  = ParseVector(SplitLine.Data);    }
+        else if(SplitLine.Label == "R") { Car.Rotation  = ParseQuat(SplitLine.Data);      }
+        else if(SplitLine.Label == "W") { Car.Wheels    = GetWheelsData(Keyframe, Lines); }
+    }
+    
+    return Car;
+}
+
+function GetWheelsData(Keyframe, Lines)
+{
+    var Wheels = [];
+    
+    while(true)
+    {
+        //Trim the whitespace off the front and check if the group is done
+        var ThisLine = RemoveWhitespace(Lines[Keyframe.CurrentLine]);
+        ++Keyframe.CurrentLine;
+        if(ThisLine == "]")
+        {
+            break;
+        }
+    
+        //Get information for the next wheel
+        Wheels.push(GetWheelData(Keyframe, Lines));
+    }
+        
+    return Wheels;    
+}
+
+function GetWheelData(Keyframe, Lines)
+{
+    var Wheel = new Object();
+    Wheel.SteerAmount        = 0;
+    Wheel.SuspensionDistance = 0;
+    Wheel.SpinSpeed          = 0;
+    
+    //Skip the wheel index
+    ++Keyframe.CurrentLine;
+    
+    while(true)
+    {
+        //Trim the whitespace off the front and check if the group is done
+        var ThisLine = RemoveWhitespace(Lines[Keyframe.CurrentLine]);
+        ++Keyframe.CurrentLine;
+        if(ThisLine == "}")
+        {
+            break;
+        }
+        
+        //Split the line by :
+        var SplitLine = GetSplitKeyframeLine(ThisLine);
+        
+        //Get all wheel data
+        if(SplitLine.Label == "SA")      { Wheel.SteerAmount        = parseFloat(SplitLine.Data); }
+        else if(SplitLine.Label == "SD") { Wheel.SuspensionDistance = parseFloat(SplitLine.Data); }
+        else if(SplitLine.Label == "SS") { Wheel.SpinSpeed          = parseFloat(SplitLine.Data); }
+    }
+    
+    return Wheel;
+}
+//
+
+
+// COMPOSITION OBJECT CREATION //
+function CreateCompObjects(MyComp, HeaderData)
 {
     //Objects are added to layers in reverse order of what's seen here
     //Camera should be created last so it will be on top
@@ -192,16 +993,18 @@ function CreateCompObjects(MyComp)
     Objects.BlueGoalLabel = CreateBlueGoalLabel(MyComp);
     Objects.OrangeGoalLabel = CreateOrangeGoalLabel(MyComp);
     
+    //Car null objects
+    Objects.CarLayers = CreateCars(MyComp, HeaderData);
+    
     //Ball null object
     Objects.BallLayer = CreateBall(MyComp);
     
     //Camera
-    Objects.CameraLayer = CreateCamera(MyComp);
+    Objects.CameraLayer = CreateCamera(MyComp, HeaderData);
     
     return Objects;
 }
 
-//Create all of the walls, floor, and ceiling reference grids
 function CreateGrids(MyComp, Objects)
 {
     //Floor
@@ -255,7 +1058,6 @@ function CreateGrids(MyComp, Objects)
     Objects.OrangeWallLayer = OrangeWallLayer;
 }
 
-//Create a plane with a grid effect
 function CreateGrid(MyComp, GridName)
 {
     var NewGrid = MyComp.layers.addSolid([1,1,1], GridName, 1000, 1000, 1);
@@ -280,28 +1082,53 @@ function CreateGrid(MyComp, GridName)
     return NewGrid;
 }
 
-//Create camera 
-function CreateCamera(MyComp)
+function CreateCamera(MyComp, HeaderData)
 {
-    var CameraLayer = MyComp.layers.addCamera("UNNAMED CAMERA", [MyComp.width / 2, MyComp.height / 2]);
+    var CameraName = "UNNAMED CAMERA";
+    if(HeaderData.RecordingMetadata.Camera != "")
+    {
+        CameraName = HeaderData.RecordingMetadata.Camera;
+    }
+    
+    var CameraLayer = MyComp.layers.addCamera(CameraName, [MyComp.width / 2, MyComp.height / 2]);
     CameraLayer.autoOrient = AutoOrientType.NO_AUTO_ORIENT;
     CameraLayer.property("Position").dimensionsSeparated = true;
     
     return CameraLayer;
 }
 
-//Create ball
 function CreateBall(MyComp)
 {
     var BallLayer = MyComp.layers.addNull();
-    BallLayer.name = "Ball Null Object";
+    BallLayer.source.name = "Ball Null Object";
     BallLayer.threeDLayer = true;
     BallLayer.property("Position").dimensionsSeparated = true;
     
     return BallLayer;
 }
 
-//Create text label filling blue goal
+function CreateCars(MyComp, HeaderData)
+{
+    var CarLayers = [];
+    
+    for(var i = 0; i < HeaderData.CarsSeen.length; ++i)
+    {
+        CarLayers.push(CreateCar(MyComp, HeaderData.CarsSeen[i]));
+    }
+
+    return CarLayers;
+}
+
+function CreateCar(MyComp, CarSeen)
+{
+    var ThisCar = MyComp.layers.addNull();
+    ThisCar.source.name = CarSeen.Name;
+    ThisCar.threeDLayer = true;
+    ThisCar.property("Position").dimensionsSeparated = true;
+    
+    return ThisCar;
+}
+
 function CreateBlueGoalLabel(MyComp)
 {
     var BlueGoalLabel = MyComp.layers.addText("Blue Goal");
@@ -320,7 +1147,6 @@ function CreateBlueGoalLabel(MyComp)
     return BlueGoalLabel;
 }
 
-//Create text label filling orange goal
 function CreateOrangeGoalLabel(MyComp)
 {
     var OrangeGoalLabel = MyComp.layers.addText("Orange Goal");
@@ -339,7 +1165,6 @@ function CreateOrangeGoalLabel(MyComp)
     return OrangeGoalLabel;
 }
 
-//Delete the comp objects
 function RemoveCompObjects(Objects)
 {
     Objects.CameraLayer.remove();
@@ -352,97 +1177,10 @@ function RemoveCompObjects(Objects)
     Objects.OrangeWallLayer.remove();
     Objects.BlueGoalLabel.remove();
     Objects.OrangeGoalLabel.remove();
+    
+    for(var i = 0; i < Objects.CarLayers.length; ++i)
+    {
+        Objects.CarLayers[i].remove();
+    }
 }
-
-//Convert keyframe data from RL's coordinates to AE's coordinates
-function ConvertKeyframeData(ThisLine, MyComp)
-{
-    //Camera data
-    var CamZoom = GetZoom(ThisLine.split(",").slice(0,1), MyComp);
-    var CamPosition = GetPosition(ThisLine.split(",").slice(1,4));
-    var CamRotation = GetRotation(ThisLine.split(",").slice(4,8));
-    
-    //Ball data (start at 9 because of double tab separator)
-    var BallPosition = GetPosition(ThisLine.split(",").slice(9,12));
-    var BallRotation = GetRotation(ThisLine.split(",").slice(13,17));
-    
-    //Create keyframe
-    var Keyframe = new Object();
-    Keyframe.CamZoom = CamZoom;
-    Keyframe.CamPosX = CamPosition.X;
-    Keyframe.CamPosY = CamPosition.Y;
-    Keyframe.CamPosZ = CamPosition.Z;
-    Keyframe.CamRotX = CamRotation.X;
-    Keyframe.CamRotY = CamRotation.Y;
-    Keyframe.CamRotZ = CamRotation.Z;
-    Keyframe.BallPosX = BallPosition.X;
-    Keyframe.BallPosY = BallPosition.Y;
-    Keyframe.BallPosZ = BallPosition.Z;
-    Keyframe.BallRotX = BallRotation.X;
-    Keyframe.BallRotY = BallRotation.Y;
-    Keyframe.BallRotZ = BallRotation.Z;
-    
-    return Keyframe;
-}
-
-//Zoom
-function GetZoom(InFOV, MyComp)
-{
-    var AspectRatio = MyComp.width / MyComp.height;
-    var FOV = parseFloat(InFOV);
-    var FOVRads = (FOV / 2) * (Math.PI / 180);
-    var Zoom = MyComp.width / (2 * Math.tan(FOVRads));
-    
-    return Zoom;
-}
-
-//Position
-function GetPosition(PositionVals)
-{
-    var Position = new Object();
-    Position.X = parseFloat(PositionVals[1]) *  2.54;
-    Position.Y = parseFloat(PositionVals[2]) * -2.54;
-    Position.Z = parseFloat(PositionVals[0]) *  2.54;
-    
-    return Position;
-}
-
-//Rotation
-function GetRotation(QuatVals)
-{
-    //https://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToEuler/
-    
-    var qX = parseFloat(QuatVals[0]);
-    var qY = parseFloat(QuatVals[1]);
-    var qZ = parseFloat(QuatVals[2]);
-    var qW = parseFloat(QuatVals[3]);
-    
-    //Pitch
-    var H1 = (2 * qY * qW) - (2 * qX * qZ);
-    var H2 = 1 - (2 * qY * qY) - (2 * qZ * qZ);
-    var Pitch = Math.atan2(H1, H2);
-    
-    //Yaw
-    var A1 = 2 * qX * qY;
-    var A2 = 2 * qZ * qW;
-    var Yaw = Math.asin(A1 + A2);
-    
-    //Roll
-    var B1 = (2 * qX * qW) - (2 * qY * qZ);
-    var B2 = 1 - (2 * qX * qX) - (2 * qZ * qZ);
-    var Roll = Math.atan2(B1, B2);
-    
-    //Convert from radians to degrees
-    var RadToDeg = 180 / Math.PI;
-    var NewPitch = Pitch * RadToDeg;
-    var NewYaw   = Yaw   * RadToDeg;
-    var NewRoll  = Roll  * RadToDeg;
-    
-    //Output the rotation
-    var Rotation = new Object();
-    Rotation.X = NewPitch * -1;
-    Rotation.Y = NewYaw;
-    Rotation.Z = NewRoll * -1;
-    
-    return Rotation;
-}
+//

@@ -1,8 +1,9 @@
 ECHO OFF
 
 ECHO.
-ECHO Initializing and updating submodules
+ECHO Initializing submodules
 git submodule update --init --recursive
+ECHO Updating submodules
 git submodule update --remote --recursive
 
 ECHO.
