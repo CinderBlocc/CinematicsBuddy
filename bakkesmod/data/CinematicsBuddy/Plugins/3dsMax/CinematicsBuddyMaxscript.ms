@@ -7,13 +7,14 @@
 	TODO:
 		- Export all CinematicsBuddy assets (with baked animations) to external program
 			- Doesn't the FBX prompt give an option to bake animations? Maybe making a clone won't be necessary
+				- This seemed to work when manually going through the "export selected" process, so maybe it would be just that easy programmatically
 			
 		- Export camera to Rocket League
 */
 
 
 -- Information about the script
-global CBScriptVersion = "0.9.9a"
+global CBScriptVersion = "0.9.9b"
 
 -- Get relative paths
 global CBScriptLocation = PathConfig.RemovePathLeaf (GetSourceFileName()) + "\\"

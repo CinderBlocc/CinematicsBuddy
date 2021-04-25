@@ -1,0 +1,5 @@
+v0.9.9a
+	- Entire rewrite from 0.9.4d, the last beta version. Version 0.9.9a is basically 1.0, but requires some testing before full release.
+
+v0.9.9b
+	- Inverted dolly_path_directory cvar nullcheck in AnimationRecorder.cpp
