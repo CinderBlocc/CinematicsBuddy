@@ -1,11 +1,12 @@
 ﻿//Written by: SwiFT EQ and CinderBlock
-//Version 0.9.9b
+//Version 0.9.9c
 
 // GLOBAL VARIABLES //
 ProgressDialog();
 ProgressSteps = 20;
 var BlueColor = [0.35, 0.45, 0.9];
 var OrangeColor = [0.95, 0.55, 0.2];
+var bShouldEulerFilter = true;
 
 // RUN THE SCRIPT //
 main();
@@ -273,10 +274,13 @@ function GetKeyframes(KeyframeStrings, HeaderData)
     ProgressDialog.SubMessage("0/" + KeyframeStrings.length);
     
     var Keyframes = [];
+    var PreviousKeyframe = GetNullKeyframe();
     
     for(var i = 0; i < KeyframeStrings.length;)
-    {        
-        Keyframes.push(GetKeyframeData(KeyframeStrings[i], HeaderData));
+    {
+        var NewKeyframe = GetKeyframeData(KeyframeStrings[i], HeaderData, PreviousKeyframe);
+        PreviousKeyframe = NewKeyframe;
+        Keyframes.push(NewKeyframe);
         
         ++i;
         if(i % ProgressSteps == 0)
@@ -337,18 +341,18 @@ function GetKeyframeArrays(Keyframes, HeaderData)
         //Camera
         Arrays.Camera.FOV.push(ThisKeyframe.Camera.FOV);
         MapVector(Arrays.Camera.Location, ThisKeyframe.Camera.Location);
-        MapVector(Arrays.Camera.Rotation, ThisKeyframe.Camera.Rotation);
+        MapRotator(Arrays.Camera.Rotation, ThisKeyframe.Camera.Rotation);
         
         //Ball
         MapVector(Arrays.Ball.Location, ThisKeyframe.Ball.Location);
-        MapVector(Arrays.Ball.Rotation, ThisKeyframe.Ball.Rotation);
+        MapRotator(Arrays.Ball.Rotation, ThisKeyframe.Ball.Rotation);
         
         //Cars
         for(var j = 0; j < HeaderData.CarsSeen.length; ++j)
         {
             Arrays.Cars[j].bIsNull.push(ThisKeyframe.Cars[j].bIsNull ? 0 : 100);
             MapVector(Arrays.Cars[j].Location, ThisKeyframe.Cars[j].Location);
-            MapVector(Arrays.Cars[j].Rotation, ThisKeyframe.Cars[j].Rotation);
+            MapRotator(Arrays.Cars[j].Rotation, ThisKeyframe.Cars[j].Rotation);
         }
         
         ++i;
@@ -458,6 +462,26 @@ function GetEmptyVector()
     return Vector;
 }
 
+function GetEmptyRotator()
+{
+    var Rotator = new Object();
+    
+    var Rotation = new Object();
+    Rotator.X = 0;
+    Rotator.Y = 0;
+    Rotator.Z = 0;
+    
+    var Offsets = new Object();
+    Offsets.X = 0;
+    Offsets.Y = 0;
+    Offsets.Z = 0;
+    
+    Rotator.Rotation = Rotation;
+    Rotator.Offsets  = Offsets;
+    
+    return Rotator;
+}
+
 function ParseVector(VectorString)
 {    
     var VectorVals = VectorString.split(",");
@@ -504,15 +528,84 @@ function ParseQuat(QuatString)
     var NewYaw   = Yaw   * RadToDeg;
     var NewRoll  = Roll  * RadToDeg;
     
-    //Output the rotation
-    var Rotation = new Object();
-    Rotation.X = NewPitch * -1;
-    Rotation.Y = NewYaw;
-    Rotation.Z = NewRoll * -1;
+    //Output the rotation - offsets defaulted to 0
+    var Output = GetEmptyRotator();
+    Output.Rotation.X = NewPitch * -1;
+    Output.Rotation.Y = NewYaw;
+    Output.Rotation.Z = NewRoll * -1;
     
-    return Rotation;
+    return Output;
 }
 
+function EulerFilter(PreviousRotation, IncomingRotation, bIgnorePreviousRotation)
+{
+    //PreviousRotation should not be taken into account
+    if(!bShouldEulerFilter || bIgnorePreviousRotation)
+    {
+        return IncomingRotation;
+    }
+
+    // FOR NOW JUST RETURN IncomingRotation SO YOU CAN SEE IF ANYTHING BROKE //
+    var OutputRotation = GetEmptyRotator();
+    
+    //Modify the incoming rotation value and the stored offsets
+    OutputRotation.Rotation.X = FilterAxis(PreviousRotation.Rotation, IncomingRotation.Rotation, PreviousRotation.Offsets, 0);
+    OutputRotation.Rotation.Y = FilterAxis(PreviousRotation.Rotation, IncomingRotation.Rotation, PreviousRotation.Offsets, 1);
+    OutputRotation.Rotation.Z = FilterAxis(PreviousRotation.Rotation, IncomingRotation.Rotation, PreviousRotation.Offsets, 2);
+    
+    //Pass the newly modified offsets to the current rotation
+    OutputRotation.Offsets = PreviousRotation.Offsets;
+
+    return OutputRotation;
+}
+
+function FilterAxis(Previous, Incoming, Offsets, AxisNum)
+{
+    //ExtendScript won't modify a value by reference unless it is a struct, hence needing to pass in a rotation object
+    if(AxisNum == 0)
+    {
+        Offsets.X += GetNewOffset(Previous.X, Incoming.X, Offsets.X);
+        return Incoming.X + Offsets.X;
+    }
+    else if(AxisNum == 1)
+    {
+        Offsets.Y += GetNewOffset(Previous.Y, Incoming.Y, Offsets.Y);
+        return Incoming.Y + Offsets.Y;
+    }
+    else if(AxisNum == 2)
+    {
+        Offsets.Z += GetNewOffset(Previous.Z, Incoming.Z, Offsets.Z);
+        return Incoming.Z + Offsets.Z;
+    }
+
+    //How did you get here?
+    return 0;
+}
+
+function GetNewOffset(PreviousVal, IncomingVal, OffsetVal)
+{
+    /*
+        270 is chosen as the threshold because:
+            - a change in 180 might be legitimate (i.e. new kickoff)
+            - a change in 360 will rarely happen (i.e. 178 to -178 is a change of 356)
+            - 270 is between the two and probably will cover most if not all cases
+    */
+
+    var ModifiedIncoming = IncomingVal + OffsetVal;
+    var Difference = ModifiedIncoming - PreviousVal;
+    var NewOffset = 0;
+    
+    if(Difference > 270.0)
+    {
+        NewOffset -= 360.0;
+    }
+    else if(Difference < -270.0)
+    {
+        NewOffset += 360.0;
+    }
+
+    return NewOffset;
+}
 
 function BuildVectorArrays()
 {
@@ -530,6 +623,13 @@ function MapVector(OutArray, InVector)
     OutArray.X.push(InVector.X);
     OutArray.Y.push(InVector.Y);
     OutArray.Z.push(InVector.Z);
+}
+
+function MapRotator(OutArray, InRotator)
+{
+    OutArray.X.push(InRotator.Rotation.X);
+    OutArray.Y.push(InRotator.Rotation.Y);
+    OutArray.Z.push(InRotator.Rotation.Z);
 }
 //
 
@@ -676,15 +776,24 @@ function GetCarSeen(HeaderData, CarSeenIndex)
 //
 
 // KEYFRAME PARSING //
-function GetKeyframeData(KeyframeString, HeaderData)
+function GetNullKeyframe()
 {
     var Keyframe = new Object();
+    
+    Keyframe.bIsNullFrame = true;
     Keyframe.FrameNumber = -1;
     Keyframe.Ball = new Object();
     Keyframe.Camera = new Object();
     Keyframe.Cars = [];
     Keyframe.Time = new Object();
     Keyframe.CurrentLine = 0;
+    
+    return Keyframe;
+}
+function GetKeyframeData(KeyframeString, HeaderData, PreviousKeyframe)
+{
+    var Keyframe = GetNullKeyframe();
+     Keyframe.bIsNullFrame = false;
     
     //Split keyframe into an array of its individual lines
     var Lines = KeyframeString.split("\n");
@@ -717,10 +826,10 @@ function GetKeyframeData(KeyframeString, HeaderData)
                 }
                 case 1:
                 {
-                    if(SplitLine.Label == "B")       { Keyframe.Ball = GetBallData(Keyframe, Lines);             }
-                    else if(SplitLine.Label == "CM") { Keyframe.Camera = GetCameraData(Keyframe, Lines);         }
-                    else if(SplitLine.Label == "CR") { Keyframe.Cars = GetCarsData(Keyframe, Lines, HeaderData); }
-                    else if(SplitLine.Label == "T")  { Keyframe.Time = GetTimeData(Keyframe, Lines);             }
+                    if(SplitLine.Label == "B")       { Keyframe.Ball = GetBallData(Keyframe, Lines, PreviousKeyframe);             }
+                    else if(SplitLine.Label == "CM") { Keyframe.Camera = GetCameraData(Keyframe, Lines, PreviousKeyframe);         }
+                    else if(SplitLine.Label == "CR") { Keyframe.Cars = GetCarsData(Keyframe, Lines, HeaderData, PreviousKeyframe); }
+                    else if(SplitLine.Label == "T")  { Keyframe.Time = GetTimeData(Keyframe, Lines);                               }
                     break;
                 }
             }
@@ -730,11 +839,11 @@ function GetKeyframeData(KeyframeString, HeaderData)
     return Keyframe;
 }
 
-function GetBallData(Keyframe, Lines)
+function GetBallData(Keyframe, Lines, PreviousKeyframe)
 {
     var BallData = new Object();
-    BallData.Location = new Object();
-    BallData.Rotation = new Object();
+    BallData.Location = GetEmptyVector();
+    BallData.Rotation = GetEmptyRotator();
     
     while(true)
     {
@@ -750,18 +859,31 @@ function GetBallData(Keyframe, Lines)
         var SplitLine = GetSplitKeyframeLine(ThisLine);
         
         //Get location and rotation
-        if(SplitLine.Label == "L")      { BallData.Location = ParseVector(SplitLine.Data); }
-        else if(SplitLine.Label == "R") { BallData.Rotation = ParseQuat(SplitLine.Data);   }
+        if(SplitLine.Label == "L") { BallData.Location = ParseVector(SplitLine.Data); }
+        else if(SplitLine.Label == "R")
+        {
+            var NewRotation = ParseQuat(SplitLine.Data);
+            
+            if(!PreviousKeyframe.bIsNullFrame)
+            {
+                var PreviousRotation = PreviousKeyframe.Ball.Rotation;
+                BallData.Rotation = EulerFilter(PreviousRotation, NewRotation, PreviousKeyframe.bIsNullFrame);
+            }
+            else
+            {
+                BallData.Rotation = NewRotation;
+            }
+        }
     }
     
     return BallData;
 }
 
-function GetCameraData(Keyframe, Lines)
+function GetCameraData(Keyframe, Lines, PreviousKeyframe)
 {
     var CameraData = new Object();
-    CameraData.Location = new Object();
-    CameraData.Rotation = new Object();
+    CameraData.Location = GetEmptyVector();
+    CameraData.Rotation = GetEmptyRotator();
     CameraData.FOV = 0;
     
     while(true)
@@ -779,8 +901,21 @@ function GetCameraData(Keyframe, Lines)
         
         //Get location, rotation, and FOV
         if(SplitLine.Label == "L")      { CameraData.Location = ParseVector(SplitLine.Data); }
-        else if(SplitLine.Label == "R") { CameraData.Rotation = ParseQuat(SplitLine.Data);   }
-        else if(SplitLine.Label == "F") { CameraData.FOV = GetZoom(SplitLine.Data);       }
+        else if(SplitLine.Label == "F") { CameraData.FOV = GetZoom(SplitLine.Data);          }
+        else if(SplitLine.Label == "R")
+        {
+            var NewRotation = ParseQuat(SplitLine.Data);
+            
+            if(!PreviousKeyframe.bIsNullFrame)
+            {
+                var PreviousRotation = PreviousKeyframe.Camera.Rotation;
+                CameraData.Rotation = EulerFilter(PreviousRotation, NewRotation, PreviousKeyframe.bIsNullFrame);
+            }
+            else
+            {
+                CameraData.Rotation = NewRotation;
+            }
+        }
     }
     
     return CameraData;
@@ -824,7 +959,7 @@ function GetTimeData(Keyframe, Lines)
     return TimeData;
 }
 
-function GetCarsData(Keyframe, Lines, HeaderData)
+function GetCarsData(Keyframe, Lines, HeaderData, PreviousKeyframe)
 {
     var Cars = GetNullCars(HeaderData.CarsSeen.length);
     
@@ -843,7 +978,7 @@ function GetCarsData(Keyframe, Lines, HeaderData)
         
         //Get information for the next car
         var CarSeenIndex = SplitLine.Label;
-        var Car = GetCarData(Keyframe, Lines);
+        var Car = GetCarData(Keyframe, Lines, PreviousKeyframe, CarSeenIndex);
         Car.CarSeenIndex = CarSeenIndex;
         Cars[CarSeenIndex] = Car;
     }
@@ -888,14 +1023,14 @@ function GetNullWheels(NumWheels)
     return NullWheels;
 }
 
-function GetCarData(Keyframe, Lines)
+function GetCarData(Keyframe, Lines, PreviousKeyframe, CarSeenIndex)
 {
     var Car = new Object();
     Car.bIsNull = false;
     Car.CarSeenIndex = -1;
     Car.bBoosting = false;
-    Car.Location = new Object();
-    Car.Rotation = new Object();
+    Car.Location = GetEmptyVector();
+    Car.Rotation = GetEmptyRotator();
     Car.Wheels = [];
     
     //Skip the car index since that was retrieved in the parent function
@@ -917,8 +1052,21 @@ function GetCarData(Keyframe, Lines)
         //Get all car data
         if(SplitLine.Label == "B")      { Car.bBoosting = parseInt(SplitLine.Data);       }
         else if(SplitLine.Label == "L") { Car.Location  = ParseVector(SplitLine.Data);    }
-        else if(SplitLine.Label == "R") { Car.Rotation  = ParseQuat(SplitLine.Data);      }
         else if(SplitLine.Label == "W") { Car.Wheels    = GetWheelsData(Keyframe, Lines); }
+        else if(SplitLine.Label == "R")
+        {
+            var NewRotation = ParseQuat(SplitLine.Data);
+            
+            if(!PreviousKeyframe.bIsNullFrame)
+            {
+                var PreviousRotation = PreviousKeyframe.Cars[CarSeenIndex].Rotation;
+                Car.Rotation = EulerFilter(PreviousRotation, NewRotation);
+            }
+            else
+            {
+                Car.Rotation = NewRotation;
+            }
+        }
     }
     
     return Car;

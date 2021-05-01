@@ -14,7 +14,7 @@
 
 
 -- Information about the script
-global CBScriptVersion = "0.9.9b"
+global CBScriptVersion = "0.9.9c"
 
 -- Get relative paths
 global CBScriptLocation = PathConfig.RemovePathLeaf (GetSourceFileName()) + "\\"
