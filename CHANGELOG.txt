@@ -6,3 +6,8 @@ v0.9.9b
 
 v0.9.9c
 	- Added Euler filtering to After Effects script. 3ds max seems to do it automatically already (albeit with some issues).
+
+v0.9.9d
+	- Synced camera input freeze with CameraLock plugin
+	- Added unit converter to help place objects in external 3D programs
+		- Place camera where you want to place an object, then use the CBConvertUnits command

@@ -17,25 +17,28 @@ ECHO Found MSBuild.exe: %MSBuildLocation%
 
 ECHO.
 ECHO Rebuilding CinematicsBuddy.sln
-"%MSBuildLocation%" submodules\CinematicsBuddyPlugin\CinematicsBuddy.sln /t:Rebuild
+"%MSBuildLocation%" %~dp0\submodules\CinematicsBuddyPlugin\CinematicsBuddy.sln /t:Rebuild
 
 ECHO.
 ECHO Copying built dll into plugins folder
-COPY "submodules\CinematicsBuddyPlugin\x64\Release\CinematicsBuddy.dll" "submodules\CinematicsBuddyPlugin\bakkesmod\plugins\"
+COPY "%~dp0\submodules\CinematicsBuddyPlugin\x64\Release\CinematicsBuddy.dll" "%~dp0\submodules\CinematicsBuddyPlugin\bakkesmod\plugins\"
 
-if not exist "bakkesmod\" mkdir "bakkesmod"
+ECHO.
+ECHO Deleting and recreating bakkesmod folder
+if exist "%~dp0\bakkesmod\" RD /S /Q "%~dp0\bakkesmod\"
+mkdir "%~dp0\bakkesmod"
 
 ECHO.
 ECHO Copying contents of plugin repo into root bakkesmod folder
-XCOPY /e /v /s /y /exclude:ExcludedFileTypes.txt "submodules\CinematicsBuddyPlugin\bakkesmod\" "bakkesmod\"
+XCOPY /e /v /s /y /exclude:ExcludedFileTypes.txt "%~dp0\submodules\CinematicsBuddyPlugin\bakkesmod\" "%~dp0\bakkesmod\"
 
 ECHO.
 ECHO Copying contents of maxscript repo into root bakkesmod folder
-XCOPY /e /v /s /y /exclude:ExcludedFileTypes.txt "submodules\CinematicsBuddyMaxscript\bakkesmod\" "bakkesmod\"
+XCOPY /e /v /s /y /exclude:ExcludedFileTypes.txt "%~dp0\submodules\CinematicsBuddyMaxscript\bakkesmod\" "%~dp0\bakkesmod\"
 
 ECHO.
 ECHO Copying contents of after effects repo into root bakkesmod folder
-XCOPY /e /v /s /y /exclude:ExcludedFileTypes.txt "submodules\CinematicsBuddyAE\bakkesmod\" "bakkesmod\"
+XCOPY /e /v /s /y /exclude:ExcludedFileTypes.txt "%~dp0\submodules\CinematicsBuddyAE\bakkesmod\" "%~dp0\bakkesmod\"
 
 ECHO.
 ECHO Script successfully completed.

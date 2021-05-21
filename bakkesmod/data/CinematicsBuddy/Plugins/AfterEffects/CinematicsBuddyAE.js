@@ -1,5 +1,5 @@
 ﻿//Written by: SwiFT EQ and CinderBlock
-//Version 0.9.9c
+//Version 0.9.9d
 
 // GLOBAL VARIABLES //
 ProgressDialog();

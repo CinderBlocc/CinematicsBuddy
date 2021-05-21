@@ -22,3 +22,10 @@ After you've imported a scene, you can import additional camera angles that were
 The sync won't always be perfect, so each camera has a "Sync Shift" modifier you can use to shift all the keyframes by a specified amount of time.
 
 The sync assumes that all camera angles were recorded at the same speed in game. It doesn't attempt to compensate if the speeds are different.
+
+
+## RIGGING SCRIPTS
+
+The "RiggingScripts" folder contains an example script that rigs up the proxy mesh. It has comments in it to explain what each part does so you can quickly tailor it to your own needs.
+
+If you want to edit the script, make a copy of it first. If you edit the existing file, any future plugin updates will overwrite your changes.
