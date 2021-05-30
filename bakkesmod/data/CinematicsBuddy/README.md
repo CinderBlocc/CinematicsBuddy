@@ -51,7 +51,7 @@ Example unit conversion output:
 - `Local Momentum Preservation` - `CB_Camera_bLocalMomentum` *(false, -, -)* Camera either maintains linear momentum, or follows the direction the camera is facing.
 - `Local Movement` - `CB_Camera_bUseLocalMovement` *(true, -, -)* Camera moves according to its local axes. For instance if you are looking downward and press forward, the camera will move in the direction you are looking.
 - `Local Rotation` - `CB_Camera_bUseLocalRotation` *(false, -, -)* Camera rotates along its local axes. This effect is particularly noticable when the camera is rolled more than 45 degrees and pitch or yaw inputs are given.
-- `Invert Pitch (Controller)` - `CB_Camera_InvertControllerPitch` *(false, -, -)* Inverts the pitch inputs from the controller. Does not affect mouse input.
+- `Invert Pitch (Controller)` - `CB_Camera_bInvertControllerPitch` *(false, -, -)* Inverts the pitch inputs from the controller. Does not affect mouse input.
 - `Hard Floors` - `CB_Camera_bHardFloors` *(true, -, -)* Prevents the camera from going below the floor. The floor is specified by the **Floor Height** variable.
 
 ###### SLIDERS

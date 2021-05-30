@@ -1,5 +1,5 @@
 ﻿//Written by: SwiFT EQ and CinderBlock
-//Version 0.9.9d
+//Version 0.9.9e
 
 // GLOBAL VARIABLES //
 ProgressDialog();
@@ -417,6 +417,7 @@ function ApplyKeyframes(Arrays, HeaderData)
 function ApplyVectorKeyframe(TheLayer, TimeArray, TheVector, bLocationOrRotation)
 {
     var TheType = bLocationOrRotation ? "Position" : "Rotation";
+    
     TheLayer.property("Transform").property("X " + TheType).setValuesAtTimes(TimeArray, TheVector.X);
     TheLayer.property("Transform").property("Y " + TheType).setValuesAtTimes(TimeArray, TheVector.Y);
     TheLayer.property("Transform").property("Z " + TheType).setValuesAtTimes(TimeArray, TheVector.Z);
@@ -467,9 +468,9 @@ function GetEmptyRotator()
     var Rotator = new Object();
     
     var Rotation = new Object();
-    Rotator.X = 0;
-    Rotator.Y = 0;
-    Rotator.Z = 0;
+    Rotation.X = 0;
+    Rotation.Y = 0;
+    Rotation.Z = 0;
     
     var Offsets = new Object();
     Offsets.X = 0;
@@ -997,7 +998,7 @@ function GetNullCars(NumCars)
         Car.CarSeenIndex = i;
         Car.bBoosting = false;
         Car.Location = GetEmptyVector();
-        Car.Rotation = GetEmptyVector();
+        Car.Rotation = GetEmptyRotator();
         Car.Wheels = GetNullWheels(4);
         
         NullCars.push(Car);

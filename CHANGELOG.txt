@@ -11,3 +11,10 @@ v0.9.9d
 	- Synced camera input freeze with CameraLock plugin
 	- Added unit converter to help place objects in external 3D programs
 		- Place camera where you want to place an object, then use the CBConvertUnits command
+
+v0.9.9e
+	- Added example rigging script for 3ds Max
+	- Fixed camera momentum reset not fully working
+	- Added "Fast" camera config
+	- Fixed demolished car null rotation issue in After Effects
+	
