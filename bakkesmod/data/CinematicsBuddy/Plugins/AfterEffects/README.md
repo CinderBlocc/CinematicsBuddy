@@ -1,6 +1,8 @@
 # Cinematics Buddy After Effects
 
-*If you are reading this file in notepad, I would recommend going to [this link](https://github.com/CinderBlocc/CinematicsBuddyAE/tree/main/bakkesmod/data/CinematicsBuddy/Plugins/AfterEffects) to view the formatted readme page.*
+*If you are reading this file in notepad, I would recommend going to [this link](https://github.com/CinderBlocc/CinematicsBuddyAE/blob/main/bakkesmod/data/CinematicsBuddy/Plugins/AfterEffects/README.md) to view the formatted readme page.*
+
+[Video tutorial series here](https://youtube.com/playlist?list=PLnGMqVCpN88qI-OFDpCStYTqO9bwqymq-)
 
 ## IMPORTING ANIMATION FILE
 

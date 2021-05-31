@@ -1,5 +1,5 @@
 ﻿//Written by: SwiFT EQ and CinderBlock
-//Version 0.9.9e
+//Version 1.0
 
 // GLOBAL VARIABLES //
 ProgressDialog();
@@ -98,6 +98,8 @@ function ProgressDialog()
 // MAIN FUNCTIONS //
 function main()
 {
+    var StartTime = new Date();
+    
     //Make sure there is an active composition
     if(app.project.activeItem == null)
     {
@@ -130,7 +132,9 @@ function main()
         
         //Return version number upon successful completion
         ProgressDialog.Close();
-        return "Version: " + HeaderData.RecordingMetadata.Version;
+        var EndTime = new Date();
+        var ExecutionDuration = (EndTime.getTime() - StartTime.getTime()) / 1000;
+        return "Execution time: " + ExecutionDuration + "s | Version: " + HeaderData.RecordingMetadata.Version;
     }
 
     return "Failed to open txt file";
@@ -546,7 +550,6 @@ function EulerFilter(PreviousRotation, IncomingRotation, bIgnorePreviousRotation
         return IncomingRotation;
     }
 
-    // FOR NOW JUST RETURN IncomingRotation SO YOU CAN SEE IF ANYTHING BROKE //
     var OutputRotation = GetEmptyRotator();
     
     //Modify the incoming rotation value and the stored offsets
@@ -644,6 +647,11 @@ function GetRecordingMetadata(HeaderData)
     RecordingMetadata.Frames     = -1;
     RecordingMetadata.Duration   = -1.0;
     
+    if(HeaderData.Lines[HeaderData.CurrentLine].indexOf("RECORDING METADATA") <= -1)
+    {
+        return RecordingMetadata;
+    }
+    
     //Skip the first line "RECORDING METADATA"
     ++HeaderData.CurrentLine;
 
@@ -679,6 +687,11 @@ function GetReplayMetadata(HeaderData)
     ReplayMetadata.FPS     = -1;
     ReplayMetadata.Frames  = -1;
     
+    if(HeaderData.Lines[HeaderData.CurrentLine].indexOf("REPLAY METADATA") <= -1)
+    {
+        return ReplayMetadata;
+    }
+    
     //Skip the first line "REPLAY METADATA"
     ++HeaderData.CurrentLine;
     
@@ -708,6 +721,11 @@ function GetReplayMetadata(HeaderData)
 function GetCarsSeen(HeaderData)
 {
     var CarsSeen = [];
+    
+    if(HeaderData.Lines[HeaderData.CurrentLine].indexOf("CARS SEEN") <= -1)
+    {
+        return CarsSeen;
+    }
     
     //Skip the first line "CARS SEEN" and the opening brace
     HeaderData.CurrentLine += 2;
@@ -800,6 +818,13 @@ function GetKeyframeData(KeyframeString, HeaderData, PreviousKeyframe)
     var Lines = KeyframeString.split("\n");
     var StackLevel = 0;
     
+    //If a section doesn't exist, it won't get a previous keyframe which breaks things later
+	//Provide an empty previous keyframe to avoid breaking
+    var bHaveReadBallSection = false;
+    var bHaveReadCameraSection = false;
+    var bHaveReadCarSection = false;
+    var bHaveReadTimeSection = false;
+    
     //Loop through lines
     while(Keyframe.CurrentLine < Lines.length)
     {
@@ -808,6 +833,26 @@ function GetKeyframeData(KeyframeString, HeaderData, PreviousKeyframe)
         ++Keyframe.CurrentLine;
         if(ThisLine == "}")
         {
+            if(!bHaveReadBallSection)
+            {
+                Keyframe.Ball = GetNullBall();
+            }
+        
+            if(!bHaveReadCameraSection)
+            {
+                Keyframe.Camera = GetNullCamera();
+            }
+            
+            if(!bHaveReadCarSection)
+            {
+                Keyframe.Cars = GetNullCars(HeaderData.CarsSeen.length);
+            }
+        
+            if(!bHaveReadTimeSection)
+            {
+                Keyframe.Time = GetNullTime();
+            }
+            
             break;
         }
         
@@ -827,10 +872,26 @@ function GetKeyframeData(KeyframeString, HeaderData, PreviousKeyframe)
                 }
                 case 1:
                 {
-                    if(SplitLine.Label == "B")       { Keyframe.Ball = GetBallData(Keyframe, Lines, PreviousKeyframe);             }
-                    else if(SplitLine.Label == "CM") { Keyframe.Camera = GetCameraData(Keyframe, Lines, PreviousKeyframe);         }
-                    else if(SplitLine.Label == "CR") { Keyframe.Cars = GetCarsData(Keyframe, Lines, HeaderData, PreviousKeyframe); }
-                    else if(SplitLine.Label == "T")  { Keyframe.Time = GetTimeData(Keyframe, Lines);                               }
+                    if(SplitLine.Label == "B")
+                    {
+                        Keyframe.Ball = GetBallData(Keyframe, Lines, PreviousKeyframe);
+                        bHaveReadBallSection = true;
+                    }
+                    else if(SplitLine.Label == "CM")
+                    {
+                        Keyframe.Camera = GetCameraData(Keyframe, Lines, PreviousKeyframe);
+                        bHaveReadCameraSection = true;
+                    }
+                    else if(SplitLine.Label == "CR")
+                    {
+                        Keyframe.Cars = GetCarsData(Keyframe, Lines, HeaderData, PreviousKeyframe);
+                        bHaveReadCarSection = true;
+                    }
+                    else if(SplitLine.Label == "T")
+                    {
+                        Keyframe.Time = GetTimeData(Keyframe, Lines);
+                        bHaveReadTimeSection = true;
+                    }
                     break;
                 }
             }
@@ -840,11 +901,18 @@ function GetKeyframeData(KeyframeString, HeaderData, PreviousKeyframe)
     return Keyframe;
 }
 
+function GetNullBall()
+{
+    var Ball = new Object();
+    Ball.Location = GetEmptyVector();
+    Ball.Rotation = GetEmptyRotator();
+    
+    return Ball;
+}
+
 function GetBallData(Keyframe, Lines, PreviousKeyframe)
 {
-    var BallData = new Object();
-    BallData.Location = GetEmptyVector();
-    BallData.Rotation = GetEmptyRotator();
+    var BallData = GetNullBall();
     
     while(true)
     {
@@ -880,12 +948,19 @@ function GetBallData(Keyframe, Lines, PreviousKeyframe)
     return BallData;
 }
 
+function GetNullCamera()
+{
+    var Camera = new Object();
+    Camera.Location = GetEmptyVector();
+    Camera.Rotation = GetEmptyRotator();
+    Camera.FOV = 90;
+    
+    return Camera;
+}
+
 function GetCameraData(Keyframe, Lines, PreviousKeyframe)
 {
-    var CameraData = new Object();
-    CameraData.Location = GetEmptyVector();
-    CameraData.Rotation = GetEmptyRotator();
-    CameraData.FOV = 0;
+    var CameraData = GetNullCamera();
     
     while(true)
     {
@@ -933,11 +1008,18 @@ function GetZoom(InFOV)
     return Zoom;
 }
 
-function GetTimeData(Keyframe, Lines)
+function GetNullTime()
 {
     var TimeData = new Object();
     TimeData.ReplayFrame = 0;
     TimeData.Time = 0.0;
+    
+    return TimeData;
+}
+
+function GetTimeData(Keyframe, Lines)
+{
+    var TimeData = GetNullTime();
     
     while(true)
     {
@@ -993,14 +1075,7 @@ function GetNullCars(NumCars)
     
     for(var i = 0; i < NumCars; ++i)
     {
-        var Car = new Object();
-        Car.bIsNull = true;
-        Car.CarSeenIndex = i;
-        Car.bBoosting = false;
-        Car.Location = GetEmptyVector();
-        Car.Rotation = GetEmptyRotator();
-        Car.Wheels = GetNullWheels(4);
-        
+        var Car = GetNullCar(i);
         NullCars.push(Car);
     }
 
@@ -1024,15 +1099,23 @@ function GetNullWheels(NumWheels)
     return NullWheels;
 }
 
-function GetCarData(Keyframe, Lines, PreviousKeyframe, CarSeenIndex)
+function GetNullCar(CarIndex)
 {
     var Car = new Object();
-    Car.bIsNull = false;
-    Car.CarSeenIndex = -1;
+    Car.bIsNull = true;
+    Car.CarSeenIndex = CarIndex;
     Car.bBoosting = false;
     Car.Location = GetEmptyVector();
     Car.Rotation = GetEmptyRotator();
-    Car.Wheels = [];
+    Car.Wheels = GetNullWheels(4);
+    
+    return Car;
+}
+
+function GetCarData(Keyframe, Lines, PreviousKeyframe, CarSeenIndex)
+{
+    var Car = GetNullCar(-1);
+    Car.bIsNull = false;
     
     //Skip the car index since that was retrieved in the parent function
     ++Keyframe.CurrentLine;

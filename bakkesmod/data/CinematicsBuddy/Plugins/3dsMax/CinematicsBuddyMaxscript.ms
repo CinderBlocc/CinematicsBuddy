@@ -3,18 +3,8 @@
 	-- Exports an animated camera back to Rocket League
 	-- Exports rebuilt scene to an animated FBX file to be transferred to other 3D software
 
-/*
-	TODO:
-		- Export all CinematicsBuddy assets (with baked animations) to external program
-			- Doesn't the FBX prompt give an option to bake animations? Maybe making a clone won't be necessary
-				- This seemed to work when manually going through the "export selected" process, so maybe it would be just that easy programmatically
-			
-		- Export camera to Rocket League
-*/
-
-
 -- Information about the script
-global CBScriptVersion = "0.9.9e"
+global CBScriptVersion = "1.0"
 
 -- Get relative paths
 global CBScriptLocation = PathConfig.RemovePathLeaf (GetSourceFileName()) + "\\"
@@ -248,6 +238,8 @@ rollout ExportAll "Export All To Other 3D Program"
 		-- Create a clone of the car mesh, then bake all of the position/rotation data onto the mesh.
 		-- Add all the cloned cars to the selection, along with the field, ball, and camera. Export selected to FBX.
 			-- Let the user choose the FBX settings? If so, make sure the dialog pops up
+		-- Doesn't the FBX prompt give an option to bake animations? Maybe making a clone won't be necessary
+			-- This seemed to work when manually going through the "export selected" process, so maybe it would be just that easy programmatically
 	
 	local TooltipChooseDirectory = "Opens a file explorer for you to choose the output directory. The file will be saved as FBX. The cars, ball, and all cameras will be exported.\n\nNOTE 1: This only exports CinematicsBuddy scene assets, not all elements in the scene.\n\nNOTE 2: Generally this should only be used just after importing the scene so that the raw CinematicsBuddy content can be exported. Behavior is undefined if you edit the scene before exporting."
 	button ButtonChooseDirectory "Export" pos:[152,3] width:70 height:35 tooltip:TooltipChooseDirectory

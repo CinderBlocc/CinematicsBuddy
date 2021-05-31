@@ -1,6 +1,8 @@
 # Cinematics Buddy Maxscript
 
-*If you are reading this file in notepad, I would recommend going to [this link](https://github.com/CinderBlocc/CinematicsBuddyMaxscript/tree/master/bakkesmod/data/CinematicsBuddy/Plugins/3dsMax) to view the formatted readme page.*
+*If you are reading this file in notepad, I would recommend going to [this link](https://github.com/CinderBlocc/CinematicsBuddyMaxscript/tree/master/bakkesmod/data/CinematicsBuddy/Plugins/3dsMax/README.md) to view the formatted readme page.*
+
+[Video tutorial series here](https://youtube.com/playlist?list=PLnGMqVCpN88qI-OFDpCStYTqO9bwqymq-)
 
 ## OVERVIEW
 CinematicsBuddy Maxscript is part of the overall [Cinematics Buddy tool](https://github.com/CinderBlocc/CinematicsBuddy). This script is capable of importing an animation file that was recorded inside Rocket League and reconstructing it with rough meshes inside 3ds Max.

@@ -17,4 +17,9 @@ v0.9.9e
 	- Fixed camera momentum reset not fully working
 	- Added "Fast" camera config
 	- Fixed demolished car null rotation issue in After Effects
+
+v1.0
+	- Plugin is no longer in beta!
+	- Fixed issue if sections were missing from header (After Effects and 3ds Max)
+	- Fixed issue if sections were missing from keyframe (After Effects)
 	

@@ -13,29 +13,29 @@ struct StructFileMetadata
 
 struct StructRecordingMetadata
 (
-	PluginVersion,
-	CameraName,
-	FPS,
-	Frames,
-	Duration
+	PluginVersion = "",
+	CameraName = "",
+	FPS = -1.0,
+	Frames = -1,
+	Duration = -1.0
 )
 
 struct StructReplayMetadata
 (
-	ReplayName,
-	ID,
-	Date,
-	FPS,
-	Frames
+	ReplayName = "NULL",
+	ID = "NULL",
+	Date = "NULL",
+	FPS = 0,
+	Frames = 0
 )
 
 struct StructCarSeen
 (
-	CarIndex,
-	PlayerID,
-	BodyID,
-	FrontWheelRadius,
-	BackWheelRadius
+	CarIndex = -1,
+	PlayerID = "NO ID",
+	BodyID = -1,
+	FrontWheelRadius = -1.0,
+	BackWheelRadius = -1.0
 )
 
 struct StructHeaderData
@@ -44,6 +44,32 @@ struct StructHeaderData
 	RecordingMetadata = StructRecordingMetadata(),
 	ReplayMetadata = StructReplayMetadata(),
 	CarsSeen = #()
+)
+
+
+-- UTILITY FUNCTION DEFINITIONS --
+function DoesSectionExist ImportedFile SectionName = 
+(
+	local StartingLocation = FilePos ImportedFile
+	local HeaderLine = ReadLine ImportedFile
+	local TrimmedLine = TrimLeft HeaderLine
+	
+	-- If one section is missed, the blank space between each section can throw everything off
+	-- Iterate until a non-blank line has been found
+	if TrimmedLine == "" do
+	(
+		return DoesSectionExist ImportedFile SectionName
+	)
+	
+	local bDoesSectionExist = MatchPattern TrimmedLine pattern:SectionName
+	
+	if bDoesSectionExist == false do
+	(
+		Seek ImportedFile StartingLocation
+		return false
+	)
+	
+	return true
 )
 
 
@@ -83,7 +109,11 @@ function GetRecordingMetadata ImportedFile =
 	local RecordingMetadata = StructRecordingMetadata()
 	
 	-- Skip "RECORDING METADATA" header
-	ReadLine ImportedFile
+	if (DoesSectionExist ImportedFile "*RECORDING METADATA*") == false do
+	(
+		format "Could not find RECORDING METADATA section\n"
+		return ReplayMetadata
+	)
 	
 	while not eof ImportedFile do
 	(
@@ -108,20 +138,10 @@ function GetReplayMetadata ImportedFile =
 (
 	local ReplayMetadata = StructReplayMetadata()
 	
-	-- Skip "REPLAY METADATA" header, or return empty data if that header doesn't exist
-	local StartingLocation = FilePos ImportedFile
-	local HeaderLine = ReadLine ImportedFile
-	local bHasReplayMetadata = MatchPattern HeaderLine pattern:"*REPLAY METADATA*"
-	if bHasReplayMetadata == false do
+	-- Skip "REPLAY METADATA" header
+	if (DoesSectionExist ImportedFile "*REPLAY METADATA*") == false do
 	(
-		Seek ImportedFile StartingLocation
-		
-		ReplayMetadata.ReplayName = "NULL"
-		ReplayMetadata.ID         = "NULL"
-		ReplayMetadata.Date       = "NULL"
-		ReplayMetadata.FPS        = 0
-		ReplayMetadata.Frames     = 0
-		
+		format "Could not find REPLAY METADATA section\n"
 		return ReplayMetadata
 	)
 	
@@ -187,12 +207,9 @@ function GetCarsSeen ImportedFile =
 	local CarsSeen = #()
 	
 	-- Skip "CARS SEEN" header and opening brace
-	local StartingLocation = FilePos ImportedFile
-	local HeaderLine = ReadLine ImportedFile
-	local bHasCarsSeen = MatchPattern HeaderLine pattern:"*CARS SEEN*"
-	if bHasCarsSeen == false do
+	if (DoesSectionExist ImportedFile "*CARS SEEN*") == false do
 	(
-		Seek ImportedFile StartingLocation
+		format "Could not find CARS SEEN section\n"
 		return CarsSeen
 	)
 	ReadLine ImportedFile

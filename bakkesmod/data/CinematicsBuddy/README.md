@@ -1,15 +1,18 @@
 # Cinematics Buddy Plugin
 
-*If you are reading this file in notepad, I would recommend going to [this link](https://github.com/CinderBlocc/CinematicsBuddyPlugin/tree/master/bakkesmod/data/CinematicsBuddy) to view the formatted readme page.*
+*If you are reading this file in notepad, I would recommend going to [this link](https://github.com/CinderBlocc/CinematicsBuddyPlugin/tree/master/bakkesmod/data/CinematicsBuddy/README.md) to view the formatted readme page.*
+
+[Video tutorial series here](https://youtube.com/playlist?list=PLnGMqVCpN88qI-OFDpCStYTqO9bwqymq-)
 
 ## OVERVIEW
 CinematicsBuddy is a tool designed to make life easier for editors and spectators. It provides features for capturing camera / ball / car animation, and overriding inputs for more refined control over the camera with controllers or keyboard and mouse. Below are the instructions for each part of the plugin.
 
 For instructions about third party scripts (such as 3ds Max and After Effect's importers), refer to their respective readme files listed below.
-- [3ds Max](https://github.com/CinderBlocc/CinematicsBuddyMaxscript/tree/master/bakkesmod/data/CinematicsBuddy/Plugins/3dsMax)
-- [After Effects](https://github.com/CinderBlocc/CinematicsBuddyAE/tree/main/bakkesmod/data/CinematicsBuddy/Plugins/AfterEffects)
+- [3ds Max](https://github.com/CinderBlocc/CinematicsBuddyMaxscript/tree/master/bakkesmod/data/CinematicsBuddy/Plugins/3dsMax/README.md)
+- [After Effects](https://github.com/CinderBlocc/CinematicsBuddyAE/tree/main/bakkesmod/data/CinematicsBuddy/Plugins/AfterEffects/README.md)
 
-Each of the settings described below follows this format: `Setting UI name` - `Setting internal name` *(default value, minimum, maximum)* Setting description.
+Each of the settings described below follows this format:
+- `Setting UI name` - `Setting internal name` *(default value, minimum, maximum)* Setting description.
 
 ## EXPORTING
 
@@ -19,7 +22,7 @@ Each of the settings described below follows this format: `Setting UI name` - `S
 - `File Name` - `CB_FileName` *("", -, -)* The name given to the recording file when it is saved.
 - `Camera Name` - `CB_CameraName` *("", -, -)* The name given to the camera. **Camera Name does not increment along with the file name.**
 - `Special Path` - `Checkbox: CB_bSetFilePath` *(false, -, -) Refer to the next "Special Path" description.*
-- `Special Path` - `Textbox: CB_FilePath` *("", -, -)* Allows the user to override the default export path of /bakkesmod/data/CinematicsBuddy/AnimationExports/. The checkbox must be enabled before an override path can be added. A **full path** must be provided. For example: `C:\MyProjectFolder\Recordings\CinematicsBuddyCaptures`. A trailing slash is no longer necessary and backslashes should hopefully work as well as forward slashes, even if they get duplicated.
+- `Special Path` - `Textbox: CB_FilePath` *("", -, -)* Allows the user to override the default export path of /bakkesmod/data/CinematicsBuddy/AnimationExports/. The checkbox must be enabled before an override path can be added. A **full path** must be provided. For example: `C:\MyProjectFolder\Recordings\CinematicsBuddyCaptures`. A trailing slash is no longer necessary and back slashes should work as well as forward slashes, even if they get duplicated.
 - `Start Recording` - `CBRecordingStart` *(-, -, -)* Starts the recording. **File Name** and **Camera Name** must have text in the textboxes, and **Special Path** must either be empty, or have a valid full path.
 - `Stop Recording` - `CBRecordingStop` *(-, -, -)* Stops the recording and immediately saves the file. The file is written in a separate thread and the UI will be greyed out until it has finished.
 - `Max Recording Length (Seconds)` - `CB_Recording_MaxLength` *(300, 0, 1000)* Automatically stops and saves the recording after the specified length of time.
